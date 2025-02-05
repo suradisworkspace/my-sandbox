@@ -1,34 +1,36 @@
 import {
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   LayoutChangeEvent,
   Pressable,
+  Text,
 } from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
-import {
-  BottomTabBarProps,
-  BottomTabDescriptor,
-  BottomTabDescriptorMap,
-} from '@react-navigation/bottom-tabs/src/types'
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { chunk } from 'lodash'
-import { Canvas, Path, RoundedRect, Skia } from '@shopify/react-native-skia'
+import { Canvas, Mask, Path, RoundedRect, Skia } from '@shopify/react-native-skia'
 import { NavigationRoute, ParamListBase } from '@react-navigation/native'
-
-import TabBarIcon, { MapIconType, MaterialIconsType } from '@/components/TabBar/TabBarIcon'
 import { useSharedValue, withTiming } from 'react-native-reanimated'
 
-const NAVIGATION_HEIGHT = 80
+import TabBarIcon, { MapIconType, MaterialIconsType } from './TabBarIcon'
+type BottomTabDescriptorMap = BottomTabBarProps['descriptors']
+type BottomTabDescriptor = BottomTabDescriptorMap['any']
+
+const NAVIGATION_HEIGHT = 60
 const NAVIGATION_HORIZONTAL_MARGIN = 12
 const NAVIGATION_VERTICAL_MARGIN = 16
-const NAVIGATION_RADIUS = 28
+const NAVIGATION_RADIUS = 16
 const NAVIGATION_CENTER_BUTTON_SIZE = 60
 const NAVIGATION_CENTER_LENGTH = 150
-const NAVIGATION_CURVE_BOTTOM = 50
-const NAVIGATION_CURVE_STRENGTH = 40
+const NAVIGATION_CURVE_BOTTOM = 30
+const NAVIGATION_CURVE_STRENGTH = 35
 const NAVIGATION_BUTTON_PADDING = 8
 const MAX_WIDTH = 550
+const NAVIGATION_BUTTON_GAP = -48
+
+const CENTER_BLOCK_WIDTH =
+  NAVIGATION_CENTER_LENGTH - NAVIGATION_CURVE_STRENGTH + NAVIGATION_BUTTON_GAP
 
 export const NAVIGATION_SAFE_AREA =
   NAVIGATION_VERTICAL_MARGIN +
@@ -61,9 +63,12 @@ const TabBarItem = (
     >
       <TabBarIcon focused={props.isFocused} color={accentColor} name={props.icon} size={28} />
       <Text
-        style={{
-          color: accentColor,
-        }}
+        style={[
+          {
+            color: accentColor,
+          },
+          styles.tabbarTextAlign,
+        ]}
       >
         {props.options.title}
       </Text>
@@ -74,6 +79,7 @@ const TabBarItem = (
 type TabBarContainerPropsType = BottomTabBarProps & {
   iconMap: MapIconType
 }
+
 const TabBarContainer = (props: TabBarContainerPropsType) => {
   const [layout, setLayout] = useState({ width: 0, height: 0 })
   const updateLayout = (event: LayoutChangeEvent) => {
@@ -86,18 +92,16 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
   const halfLength = props.state.routes.length / 2
   const [halfLeft, halfRight] = chunk(props.state.routes, halfLength)
   const highLightPos = useSharedValue(0)
-  const highlightBoxWidth =
-    (layout.width - NAVIGATION_CENTER_LENGTH + NAVIGATION_CURVE_STRENGTH) / 4
+  const highlightBoxWidth = (layout.width - CENTER_BLOCK_WIDTH) / 4
 
   useEffect(() => {
     const toValue = props.state.index * highlightBoxWidth
-    const extraPad =
-      props.state.index < halfLength ? 0 : NAVIGATION_CENTER_LENGTH - NAVIGATION_CURVE_STRENGTH
+    const extraPad = props.state.index < halfLength ? 0 : CENTER_BLOCK_WIDTH
     highLightPos.value = withTiming(toValue + extraPad)
   }, [halfLength, highlightBoxWidth, props.state.index])
 
   const path = useMemo(() => {
-    let lastLoc = { x: 0, y: 0 }
+    const lastLoc = { x: 0, y: 0 }
     const sectionWidth = (layout.width - NAVIGATION_CENTER_LENGTH) / 2
     const path = Skia.Path.Make()
     // beware of add rectangle
@@ -169,25 +173,30 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
           key={item.key}
           isFocused={props.currentIndex === index + (props.extraIndex ?? 0)}
           icon={props.iconMap[item.name]}
-          {...props.descriptors[item.key as any]}
+          {...props.descriptors[item.key as string]}
         />
       )
     })
   }
 
-  console.log('props.state.index', props.state.index)
+  const ButtonContainer = () => {
+    return <Path path={path} color="lightgrey" />
+  }
+
   return (
     <View style={styles.tabbarContainer}>
       <Canvas style={styles.canvas} onLayout={updateLayout}>
-        <Path path={path} color="lightgrey"></Path>
-        <RoundedRect
-          x={highLightPos}
-          y={0}
-          width={highlightBoxWidth}
-          height={NAVIGATION_HEIGHT}
-          r={NAVIGATION_RADIUS}
-          color="red"
-        />
+        <ButtonContainer />
+        <Mask mask={<ButtonContainer />}>
+          <RoundedRect
+            x={highLightPos}
+            y={0}
+            width={highlightBoxWidth}
+            height={NAVIGATION_HEIGHT}
+            r={NAVIGATION_RADIUS}
+            color="red"
+          />
+        </Mask>
       </Canvas>
       <View style={[styles.canvas, styles.navButtonContainer]}>
         <RenderNavigationItem
@@ -205,12 +214,8 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
           descriptors={props.descriptors}
         />
       </View>
-      <TouchableOpacity style={styles.centerButton} onPress={() => {}}>
-        <Canvas
-          style={{
-            flex: 1,
-          }}
-        >
+      <TouchableOpacity style={styles.centerButton} onPress={() => null}>
+        <Canvas style={styles.centerBtnContainer}>
           <RoundedRect
             x={0}
             y={0}
@@ -237,6 +242,9 @@ const styles = StyleSheet.create({
   },
   tabbarItemContainerFocused: {
     // backgroundColor: 'green',
+  },
+  tabbarTextAlign: {
+    textAlign: 'center',
   },
   tabbarContainer: {
     position: 'absolute',
@@ -270,7 +278,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   centerPlaceHolderGap: {
-    width: NAVIGATION_CENTER_LENGTH - NAVIGATION_CURVE_STRENGTH,
+    width: CENTER_BLOCK_WIDTH,
     height: NAVIGATION_HEIGHT,
+  },
+  centerBtnContainer: {
+    flex: 1,
   },
 })
