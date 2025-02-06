@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React, { useCallback, useState } from 'react'
-import { NAVIGATION_SAFE_AREA } from '@/components/TabBar/TabbarComponent'
+import { NAVIGATION_SAFE_AREA } from '@/components/TabBar/TabBarComponent'
 import Button from '@/components/Button'
 
 const TabBarMain = () => {
