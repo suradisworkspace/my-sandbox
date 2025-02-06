@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router'
-import TabBarComponent from '@/components/TabBar/TabBarComponent'
-import { MapIconType } from '@/components/TabBar/TabBarIcon'
+import TabBarComponent from '@/components/TabBar/TabbarComponent'
+import { MapIconType } from '@/components/TabBar/TabbarIcon'
 const ICON_MAP: MapIconType = {
   index: 'home',
   'my-items': 'receipt-long',

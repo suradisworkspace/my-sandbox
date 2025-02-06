@@ -1,21 +1,23 @@
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  LayoutChangeEvent,
-  Pressable,
-  Text,
-} from 'react-native'
+import { StyleSheet, TouchableOpacity, View, LayoutChangeEvent } from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { chunk } from 'lodash'
-import { Canvas, Mask, Path, RoundedRect, Skia } from '@shopify/react-native-skia'
-import { NavigationRoute, ParamListBase } from '@react-navigation/native'
-import { useSharedValue, withTiming } from 'react-native-reanimated'
+import {
+  Canvas,
+  Group,
+  Mask,
+  Path,
+  RoundedRect,
+  Skia,
+  Transforms3d,
+} from '@shopify/react-native-skia'
+import { useSharedValue, withTiming, useDerivedValue, Easing } from 'react-native-reanimated'
 
-import TabBarIcon, { MapIconType, MaterialIconsType } from './TabBarIcon'
-type BottomTabDescriptorMap = BottomTabBarProps['descriptors']
-type BottomTabDescriptor = BottomTabDescriptorMap['any']
+import { MapIconType } from './TabbarIcon'
+import TabbarItems from './TabbarItems'
+export type BottomTabDescriptorMap = BottomTabBarProps['descriptors']
+
+export type OnFocusItemChangeActiveColorType = (color: string) => void
 
 const NAVIGATION_HEIGHT = 60
 const NAVIGATION_HORIZONTAL_MARGIN = 12
@@ -39,41 +41,13 @@ export const NAVIGATION_SAFE_AREA =
   NAVIGATION_BUTTON_PADDING * 2 +
   NAVIGATION_CENTER_BUTTON_SIZE
 
-const DEFAULT_ACTIVE_ACCENT_COLOR = 'blue'
-const DEFAULT_INACTIVE_ACCENT_COLOR = 'black'
-
-const TabBarItem = (
-  props: BottomTabDescriptor & {
-    isFocused: boolean
-    icon: MaterialIconsType
-  },
-) => {
-  const navigate = () => {
-    props.navigation.navigate(props.route.name)
-  }
-  const {
-    tabBarActiveTintColor = DEFAULT_ACTIVE_ACCENT_COLOR,
-    tabBarInactiveTintColor = DEFAULT_INACTIVE_ACCENT_COLOR,
-  } = props.options
-  const accentColor = props.isFocused ? tabBarActiveTintColor : tabBarInactiveTintColor
-  return (
-    <Pressable
-      style={[styles.tabbarItemContainer, props.isFocused && styles.tabbarItemContainerFocused]}
-      onPress={navigate}
-    >
-      <TabBarIcon focused={props.isFocused} color={accentColor} name={props.icon} size={28} />
-      <Text
-        style={[
-          {
-            color: accentColor,
-          },
-          styles.tabbarTextAlign,
-        ]}
-      >
-        {props.options.title}
-      </Text>
-    </Pressable>
-  )
+export const DEFAULT_ACTIVE_ACCENT_COLOR = 'blue'
+export const DEFAULT_INACTIVE_ACCENT_COLOR = 'black'
+const HighlightBar = {
+  width: 16,
+  height: 2,
+  r: 1,
+  y: NAVIGATION_HEIGHT - 8,
 }
 
 type TabBarContainerPropsType = BottomTabBarProps & {
@@ -91,13 +65,29 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
   }
   const halfLength = props.state.routes.length / 2
   const [halfLeft, halfRight] = chunk(props.state.routes, halfLength)
-  const highLightPos = useSharedValue(0)
+  const highlightPos = useSharedValue(0)
   const highlightBoxWidth = (layout.width - CENTER_BLOCK_WIDTH) / 4
+  const activeColor = useSharedValue(DEFAULT_ACTIVE_ACCENT_COLOR)
+  const activeColorVal = useDerivedValue(() => activeColor.value)
+
+  const selectorTransform = useDerivedValue<Transforms3d>(() => [
+    {
+      translateX: highlightPos.value,
+    },
+  ])
+
+  const onFocusItemChangeActiveColor: OnFocusItemChangeActiveColorType = (color) => {
+    if (color !== activeColor.value) {
+      activeColor.value = withTiming(color, {
+        easing: Easing.linear,
+      })
+    }
+  }
 
   useEffect(() => {
     const toValue = props.state.index * highlightBoxWidth
     const extraPad = props.state.index < halfLength ? 0 : CENTER_BLOCK_WIDTH
-    highLightPos.value = withTiming(toValue + extraPad)
+    highlightPos.value = withTiming(toValue + extraPad)
   }, [halfLength, highlightBoxWidth, props.state.index])
 
   const path = useMemo(() => {
@@ -158,27 +148,6 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
     return path
   }, [layout.height, layout.width])
 
-  type NavigationItemPropsType = {
-    descriptors: BottomTabDescriptorMap
-    currentIndex: number
-    routes: NavigationRoute<ParamListBase, string>[]
-    extraIndex?: number
-    iconMap: MapIconType
-  }
-
-  const RenderNavigationItem = (props: NavigationItemPropsType) => {
-    return props.routes.map((item, index) => {
-      return (
-        <TabBarItem
-          key={item.key}
-          isFocused={props.currentIndex === index + (props.extraIndex ?? 0)}
-          icon={props.iconMap[item.name]}
-          {...props.descriptors[item.key as string]}
-        />
-      )
-    })
-  }
-
   const ButtonContainer = () => {
     return <Path path={path} color="lightgrey" />
   }
@@ -188,29 +157,37 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
       <Canvas style={styles.canvas} onLayout={updateLayout}>
         <ButtonContainer />
         <Mask mask={<ButtonContainer />}>
-          <RoundedRect
-            x={highLightPos}
-            y={0}
-            width={highlightBoxWidth}
-            height={NAVIGATION_HEIGHT}
-            r={NAVIGATION_RADIUS}
-            color="red"
-          />
+          <Group transform={selectorTransform}>
+            <RoundedRect
+              x={0}
+              y={0}
+              width={highlightBoxWidth}
+              height={NAVIGATION_HEIGHT}
+              r={NAVIGATION_RADIUS}
+            />
+            <RoundedRect
+              x={(highlightBoxWidth - HighlightBar.width) / 2}
+              {...HighlightBar}
+              color={activeColorVal}
+            />
+          </Group>
         </Mask>
       </Canvas>
       <View style={[styles.canvas, styles.navButtonContainer]}>
-        <RenderNavigationItem
+        <TabbarItems
           iconMap={props.iconMap}
           routes={halfLeft}
           currentIndex={props.state.index}
           descriptors={props.descriptors}
+          onFocus={onFocusItemChangeActiveColor}
         />
         <View style={styles.centerPlaceHolderGap} />
-        <RenderNavigationItem
+        <TabbarItems
           iconMap={props.iconMap}
           routes={halfRight}
           currentIndex={props.state.index}
           extraIndex={halfLength}
+          onFocus={onFocusItemChangeActiveColor}
           descriptors={props.descriptors}
         />
       </View>
@@ -235,14 +212,10 @@ export default TabBarContainer
 const styles = StyleSheet.create({
   tabbarItemContainer: {
     flex: 1,
-    // backgroundColor: 'blue',
     alignItems: 'center',
     justifyContent: 'center',
-    // backgroundColor: 'red',
   },
-  tabbarItemContainerFocused: {
-    // backgroundColor: 'green',
-  },
+  tabbarItemContainerFocused: {},
   tabbarTextAlign: {
     textAlign: 'center',
   },
