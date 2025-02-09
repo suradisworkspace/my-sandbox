@@ -1,4 +1,11 @@
-import { StyleSheet, TouchableOpacity, View, LayoutChangeEvent } from 'react-native'
+import {
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  LayoutChangeEvent,
+  TextStyle,
+  StyleProp,
+} from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { chunk } from 'lodash'
@@ -13,45 +20,15 @@ import {
 } from '@shopify/react-native-skia'
 import { useSharedValue, withTiming, useDerivedValue, Easing } from 'react-native-reanimated'
 
-import { MapIconType } from './TabBarIcon'
-import TabbarItems from './TabBarItems'
-export type BottomTabDescriptorMap = BottomTabBarProps['descriptors']
+// import Colors from '~/core/theme/colors'
 
-export type OnFocusItemChangeActiveColorType = (color: string) => void
-
-const NAVIGATION_HEIGHT = 60
-const NAVIGATION_HORIZONTAL_MARGIN = 12
-const NAVIGATION_VERTICAL_MARGIN = 16
-const NAVIGATION_RADIUS = 16
-const NAVIGATION_CENTER_BUTTON_SIZE = 60
-const NAVIGATION_CENTER_LENGTH = 150
-const NAVIGATION_CURVE_BOTTOM = 30
-const NAVIGATION_CURVE_STRENGTH = 35
-const NAVIGATION_BUTTON_PADDING = 8
-const MAX_WIDTH = 550
-const NAVIGATION_BUTTON_GAP = -48
-
-const CENTER_BLOCK_WIDTH =
-  NAVIGATION_CENTER_LENGTH - NAVIGATION_CURVE_STRENGTH + NAVIGATION_BUTTON_GAP
-
-export const NAVIGATION_SAFE_AREA =
-  NAVIGATION_VERTICAL_MARGIN +
-  NAVIGATION_HEIGHT -
-  NAVIGATION_CURVE_BOTTOM +
-  NAVIGATION_BUTTON_PADDING * 2 +
-  NAVIGATION_CENTER_BUTTON_SIZE
-
-export const DEFAULT_ACTIVE_ACCENT_COLOR = 'blue'
-export const DEFAULT_INACTIVE_ACCENT_COLOR = 'black'
-const HighlightBar = {
-  width: 16,
-  height: 2,
-  r: 1,
-  y: NAVIGATION_HEIGHT - 8,
-}
+import TabbarItems, { BottomTabIconMapType } from './BottomTabItems'
+import * as Config from './BottomTabConfig'
+import { OnFocusItemChangeActiveColorType } from './BottomTabTypes'
 
 type TabBarContainerPropsType = BottomTabBarProps & {
-  iconMap: MapIconType
+  iconMap: BottomTabIconMapType
+  labelStyle?: StyleProp<TextStyle>
 }
 
 const TabBarContainer = (props: TabBarContainerPropsType) => {
@@ -66,8 +43,8 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
   const halfLength = props.state.routes.length / 2
   const [halfLeft, halfRight] = chunk(props.state.routes, halfLength)
   const highlightPos = useSharedValue(0)
-  const highlightBoxWidth = (layout.width - CENTER_BLOCK_WIDTH) / 4
-  const activeColor = useSharedValue(DEFAULT_ACTIVE_ACCENT_COLOR)
+  const highlightBoxWidth = (layout.width - Config.CENTER_BLOCK_WIDTH) / 4
+  const activeColor = useSharedValue(Config.DEFAULT_ACTIVE_ACCENT_COLOR)
   const activeColorVal = useDerivedValue(() => activeColor.value)
 
   const selectorTransform = useDerivedValue<Transforms3d>(() => [
@@ -80,44 +57,47 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
     if (color !== activeColor.value) {
       activeColor.value = withTiming(color, {
         easing: Easing.linear,
+        duration: Config.ANIMATION_SPEED,
       })
     }
   }
 
   useEffect(() => {
     const toValue = props.state.index * highlightBoxWidth
-    const extraPad = props.state.index < halfLength ? 0 : CENTER_BLOCK_WIDTH
-    highlightPos.value = withTiming(toValue + extraPad)
+    const extraPad = props.state.index < halfLength ? 0 : Config.CENTER_BLOCK_WIDTH
+    highlightPos.value = withTiming(toValue + extraPad, {
+      duration: Config.ANIMATION_SPEED,
+    })
   }, [halfLength, highlightBoxWidth, props.state.index])
 
   const path = useMemo(() => {
     const lastLoc = { x: 0, y: 0 }
-    const sectionWidth = (layout.width - NAVIGATION_CENTER_LENGTH) / 2
+    const sectionWidth = (layout.width - Config.NAVIGATION_CENTER_LENGTH) / 2
     const path = Skia.Path.Make()
     // beware of add rectangle
     const tempLeftRecLoc = { ...lastLoc }
     lastLoc.x = sectionWidth
     path.moveTo(lastLoc.x, 0)
     // start curveLeft
-    const lcpx1 = lastLoc.x + NAVIGATION_CURVE_STRENGTH
+    const lcpx1 = lastLoc.x + Config.NAVIGATION_CURVE_STRENGTH
     const lcpy1 = lastLoc.y
-    lastLoc.x += NAVIGATION_CENTER_LENGTH / 2
-    lastLoc.y = NAVIGATION_CURVE_BOTTOM
-    const lcpx2 = lastLoc.x - NAVIGATION_CURVE_STRENGTH
+    lastLoc.x += Config.NAVIGATION_CENTER_LENGTH / 2
+    lastLoc.y = Config.NAVIGATION_CURVE_BOTTOM
+    const lcpx2 = lastLoc.x - Config.NAVIGATION_CURVE_STRENGTH
     const lcpy2 = lastLoc.y
     path.cubicTo(lcpx1, lcpy1, lcpx2, lcpy2, lastLoc.x, lastLoc.y)
     // start curveRight
-    const rcpx1 = lastLoc.x + NAVIGATION_CURVE_STRENGTH
+    const rcpx1 = lastLoc.x + Config.NAVIGATION_CURVE_STRENGTH
     const rcpy1 = lastLoc.y
-    lastLoc.x += NAVIGATION_CENTER_LENGTH / 2
+    lastLoc.x += Config.NAVIGATION_CENTER_LENGTH / 2
     lastLoc.y = 0
-    const rcpx2 = lastLoc.x - NAVIGATION_CURVE_STRENGTH
+    const rcpx2 = lastLoc.x - Config.NAVIGATION_CURVE_STRENGTH
     const rcpy2 = lastLoc.y
     path.cubicTo(rcpx1, rcpy1, rcpx2, rcpy2, lastLoc.x, lastLoc.y)
     const tempRightRecLoc = { ...lastLoc }
     lastLoc.y = layout.height
     path.lineTo(lastLoc.x, lastLoc.y)
-    lastLoc.x -= NAVIGATION_CENTER_LENGTH
+    lastLoc.x -= Config.NAVIGATION_CENTER_LENGTH
     path.lineTo(lastLoc.x, lastLoc.y)
     path.addRRect({
       rect: {
@@ -126,8 +106,8 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
         width: sectionWidth,
         height: layout.height,
       },
-      topLeft: { x: NAVIGATION_RADIUS, y: NAVIGATION_RADIUS },
-      bottomLeft: { x: NAVIGATION_RADIUS, y: NAVIGATION_RADIUS },
+      topLeft: { x: Config.NAVIGATION_RADIUS, y: Config.NAVIGATION_RADIUS },
+      bottomLeft: { x: Config.NAVIGATION_RADIUS, y: Config.NAVIGATION_RADIUS },
       topRight: { x: 0, y: 0 },
       bottomRight: { x: 0, y: 0 },
     })
@@ -140,8 +120,8 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
       },
       topLeft: { x: 0, y: 0 },
       bottomLeft: { x: 0, y: 0 },
-      topRight: { x: NAVIGATION_RADIUS, y: NAVIGATION_RADIUS },
-      bottomRight: { x: NAVIGATION_RADIUS, y: NAVIGATION_RADIUS },
+      topRight: { x: Config.NAVIGATION_RADIUS, y: Config.NAVIGATION_RADIUS },
+      bottomRight: { x: Config.NAVIGATION_RADIUS, y: Config.NAVIGATION_RADIUS },
     })
     path.close()
 
@@ -158,16 +138,10 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
         <ButtonContainer />
         <Mask mask={<ButtonContainer />}>
           <Group transform={selectorTransform}>
+            {/* <RoundedRect x={0} y={0} width={highlightBoxWidth} height={NAVIGATION_HEIGHT} r={NAVIGATION_RADIUS} /> */}
             <RoundedRect
-              x={0}
-              y={0}
-              width={highlightBoxWidth}
-              height={NAVIGATION_HEIGHT}
-              r={NAVIGATION_RADIUS}
-            />
-            <RoundedRect
-              x={(highlightBoxWidth - HighlightBar.width) / 2}
-              {...HighlightBar}
+              x={(highlightBoxWidth - Config.HighlightBar.width) / 2}
+              {...Config.HighlightBar}
               color={activeColorVal}
             />
           </Group>
@@ -180,6 +154,7 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
           currentIndex={props.state.index}
           descriptors={props.descriptors}
           onFocus={onFocusItemChangeActiveColor}
+          labelStyle={props.labelStyle}
         />
         <View style={styles.centerPlaceHolderGap} />
         <TabbarItems
@@ -196,9 +171,9 @@ const TabBarContainer = (props: TabBarContainerPropsType) => {
           <RoundedRect
             x={0}
             y={0}
-            width={NAVIGATION_CENTER_BUTTON_SIZE}
-            height={NAVIGATION_CENTER_BUTTON_SIZE}
-            r={NAVIGATION_CENTER_BUTTON_SIZE / 2}
+            width={Config.NAVIGATION_CENTER_BUTTON_SIZE}
+            height={Config.NAVIGATION_CENTER_BUTTON_SIZE}
+            r={Config.NAVIGATION_CENTER_BUTTON_SIZE / 2}
             color="lightgrey"
           />
         </Canvas>
@@ -224,35 +199,35 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: NAVIGATION_HORIZONTAL_MARGIN,
+    paddingHorizontal: Config.NAVIGATION_HORIZONTAL_MARGIN,
   },
   canvas: {
-    marginHorizontal: NAVIGATION_HORIZONTAL_MARGIN,
-    marginBottom: NAVIGATION_VERTICAL_MARGIN,
-    height: NAVIGATION_HEIGHT,
+    marginHorizontal: Config.NAVIGATION_HORIZONTAL_MARGIN,
+    marginBottom: Config.NAVIGATION_VERTICAL_MARGIN,
+    height: Config.NAVIGATION_HEIGHT,
     width: '100%',
-    maxWidth: MAX_WIDTH,
+    maxWidth: Config.MAX_WIDTH,
   },
   centerButton: {
     position: 'absolute',
     bottom:
-      NAVIGATION_VERTICAL_MARGIN +
-      NAVIGATION_HEIGHT -
-      NAVIGATION_CURVE_BOTTOM +
-      NAVIGATION_BUTTON_PADDING,
-    width: NAVIGATION_CENTER_BUTTON_SIZE,
-    height: NAVIGATION_CENTER_BUTTON_SIZE,
-    borderRadius: NAVIGATION_CENTER_BUTTON_SIZE / 2,
+      Config.NAVIGATION_VERTICAL_MARGIN +
+      Config.NAVIGATION_HEIGHT -
+      Config.NAVIGATION_CURVE_BOTTOM +
+      Config.NAVIGATION_BUTTON_PADDING,
+    width: Config.NAVIGATION_CENTER_BUTTON_SIZE,
+    height: Config.NAVIGATION_CENTER_BUTTON_SIZE,
+    borderRadius: Config.NAVIGATION_CENTER_BUTTON_SIZE / 2,
   },
   navButtonContainer: {
     position: 'absolute',
     flexDirection: 'row',
-    borderRadius: NAVIGATION_RADIUS,
+    borderRadius: Config.NAVIGATION_RADIUS,
     overflow: 'hidden',
   },
   centerPlaceHolderGap: {
-    width: CENTER_BLOCK_WIDTH,
-    height: NAVIGATION_HEIGHT,
+    width: Config.CENTER_BLOCK_WIDTH,
+    height: Config.NAVIGATION_HEIGHT,
   },
   centerBtnContainer: {
     flex: 1,

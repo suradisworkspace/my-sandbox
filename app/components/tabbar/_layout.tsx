@@ -1,11 +1,12 @@
 import { Tabs } from 'expo-router'
-import TabBarComponent from '@/components/TabBar/TabBarComponent'
-import { MapIconType } from '@/components/TabBar/TabBarIcon'
-const ICON_MAP: MapIconType = {
-  index: 'home',
-  'my-items': 'receipt-long',
-  community: 'forum',
-  settings: 'forum',
+import TabBarComponent, { BottomTabIconMapType } from '@/components/BottomTab'
+
+import icons from '@/assets/icons'
+const ICON_MAP: BottomTabIconMapType = {
+  index: [icons.house, icons.house_fill],
+  'my-items': [icons.house_fill],
+  community: [icons.person3, icons.person3_fill],
+  settings: [icons.gearshape, icons.gearshape_fill],
 }
 const TabBarLayout = () => {
   return (
