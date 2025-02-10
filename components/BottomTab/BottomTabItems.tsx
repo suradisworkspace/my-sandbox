@@ -1,16 +1,7 @@
 import { NavigationRoute, ParamListBase } from '@react-navigation/native'
-import React, { useEffect } from 'react'
-import { Pressable, StyleProp, StyleSheet, TextStyle } from 'react-native'
-import {
-  Mask,
-  Rect,
-  Canvas,
-  Image,
-  useImage,
-  Group,
-  LinearGradient,
-  vec,
-} from '@shopify/react-native-skia'
+import React, { useEffect, useRef } from 'react'
+import { Pressable, StyleSheet } from 'react-native'
+import { Mask, Rect, Canvas, Image, useImage, Group, LinearGradient, vec } from '@shopify/react-native-skia'
 
 import Animated, {
   interpolate,
@@ -38,7 +29,6 @@ type NavigationItemPropsType = {
   extraIndex?: number
   iconMap: BottomTabIconMapType
   onFocus: OnFocusItemChangeActiveColorType
-  labelStyle?: StyleProp<TextStyle>
 }
 
 const DEFAULT_ICON_SIZE = 28
@@ -69,7 +59,6 @@ const TabBarItem = (
     onFocus: OnFocusItemChangeActiveColorType
     itemIndex: number
     currentFocusIndex: number
-    labelStyle?: StyleProp<TextStyle>
   },
 ) => {
   const navigate = () => {
@@ -81,9 +70,10 @@ const TabBarItem = (
     tabBarActiveBackgroundColor = Config.DEFAULT_ACTIVE_BACKGROUND_COLOR,
   } = props.options
 
-  const activeOpacity = useSharedValue(props.isFocused ? 0 : -1)
-  const activeOpacityVal = useDerivedValue(() => activeOpacity.value)
-  const inactiveOpacityVal = useDerivedValue(() => interpolate(activeOpacity.value, [0, 1], [1, 0]))
+  const activeOpacity = useSharedValue(props.currentFocusIndex - props.itemIndex)
+  const activeOpacityVal = useDerivedValue(() => interpolate(activeOpacity.value, [-1, 0, 1], [0, 1, 0]))
+  const inactiveOpacityVal = useDerivedValue(() => interpolate(activeOpacity.value, [-1, 0, 1], [1, 0, 1]))
+  const prevIsFocus = useRef(props.isFocused)
 
   const labelColorStyle = useAnimatedStyle(() => ({
     color: interpolateColor(
@@ -94,8 +84,8 @@ const TabBarItem = (
   }))
 
   const gradientPosition = useDerivedValue(() => [
-    interpolate(activeOpacity.value, [-0.5, 0, 0.5], [0, 0, 1], Extrapolation.CLAMP),
-    interpolate(activeOpacity.value, [-1, 0, 1], [0, 0, 0], Extrapolation.CLAMP),
+    interpolate(activeOpacity.value, [-0.5, 0, 1], [0, 0, 1], Extrapolation.CLAMP),
+    interpolate(activeOpacity.value, [-1, 0, 0.5], [0, 0, 1], Extrapolation.CLAMP),
     interpolate(activeOpacity.value, [-0.5, 0, 1], [0, 1, 1], Extrapolation.CLAMP),
     interpolate(activeOpacity.value, [-1, 0, 0.5], [0, 1, 1], Extrapolation.CLAMP),
   ])
@@ -105,12 +95,17 @@ const TabBarItem = (
       duration: Config.ANIMATION_SPEED,
     })
   }
+
   useEffect(() => {
-    props.isFocused && props.onFocus(tabBarActiveTintColor)
-    onChangeFocused()
-    console.log('props.currentIndex', props.itemIndex)
-    console.log('props.currentFocusIndex', props.currentFocusIndex)
-  }, [props.isFocused])
+    const isFocusChange = prevIsFocus.current !== props.isFocused
+    if (isFocusChange) {
+      prevIsFocus.current = props.isFocused
+      props.isFocused && props.onFocus(tabBarActiveTintColor)
+      onChangeFocused()
+    } else {
+      activeOpacity.value = props.currentFocusIndex - props.itemIndex
+    }
+  }, [props.currentFocusIndex])
 
   const activeImage = useImage(props.activeIcon)
   const inactiveImage = useImage(props.inactiveIcon)
@@ -145,7 +140,7 @@ const TabBarItem = (
           </Rect>
         </Mask>
       </Canvas>
-      <Animated.Text style={[props.labelStyle, labelColorStyle, styles.tabbarTextAlign]}>
+      <Animated.Text style={[props.options.tabBarLabelStyle, labelColorStyle, styles.tabbarTextAlign]}>
         {props.options.title}
       </Animated.Text>
     </Pressable>
